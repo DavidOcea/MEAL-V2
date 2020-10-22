@@ -8,19 +8,26 @@ import random
 from extensions import data_parallel
 from extensions import teacher_wrapper
 from extensions import kd_loss
-from models import resnet50
-import torchvision.models as models
+import models as models
+# import torchvision.models as models
 # import pretrainedmodels
 import timm
 
-MODEL_NAME_MAP = {
-    'resnet50': resnet50.ResNet50,
-}
+# MODEL_NAME_MAP = {
+#     'resnet50': resnet50.ResNet50,
+# }
 
 def _create_single_cpu_model(model_name, state_file=None):
     model = _create_model(model_name, teacher=False, pretrain=True)
     if state_file is not None:
-        model.load_state_dict(torch.load(state_file))
+        checkpoint = torch.load(state_file)
+        state_dict = checkpoint['state_dict']
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        # for k, v in state_dict.items():
+        #     pass
+        model.load_state_dict(state_dict)        
+        # model.load_state_dict(torch.load(state_file))
     # model = torch.nn.DataParallel(model).cuda()
     return model
 
@@ -28,7 +35,14 @@ def _create_checkpoint_model(model_name, state_file=None):
     model = _create_model(model_name, teacher=False, pretrain=True)
     # model = timm.create_model(model_name.lower(), pretrained=False)
     if state_file is not None:
-        model.load_state_dict(torch.load(state_file))
+        checkpoint = torch.load(state_file)
+        state_dict = checkpoint['state_dict']
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        # for k, v in state_dict.items():
+        #     pass
+        model.load_state_dict(state_dict)
+        # model.load_state_dict(torch.load(state_file))
         # model = torch.nn.DataParallel(model).cuda()
     return model
 
@@ -36,13 +50,14 @@ def _create_model(model_name, teacher=False, pretrain=True):
     if pretrain:
         print("=> teacher" if teacher else "=> student", end=":")
         print(" using pre-trained model '{}'".format(model_name))
-
         # model = models.__dict__[model_name.lower()](pretrained=True)
-        model = timm.create_model(model_name.lower(), pretrained=True)
+        model = models.__dict__[model_name](num_classes=2)
+        print(model)
+        # model = timm.create_model(model_name.lower(), pretrained=True)
     else:
         print("=> creating model '{}'".format(model_name))
-        # model = models.__dict__[model_name.lower()]()
-        model = timm.create_model(model_name.lower(), pretrained=False)
+        model = models.__dict__[model_name.lower()]()
+        # model = timm.create_model(model_name.lower(), pretrained=False)
 
     if model_name.startswith('alexnet') or model_name.startswith('vgg'):
         model.features = torch.nn.DataParallel(model.features)
@@ -69,7 +84,7 @@ def create_model(model_name, student_state_file=None, gpus=[], teacher=None,
                  teacher_state_file=None):
     # model = _create_model(model_name)
     model = _create_checkpoint_model(model_name, student_state_file)
-    model.LR_REGIME = [1, 100, 0.01, 101, 300, 0.001] # LR_REGIME 
+    model.LR_REGIME = [1, 40, 0.001, 41, 60, 0.0001]  #[1, 100, 0.01, 101, 300, 0.001] # LR_REGIME 样例指1-100为0.01；101-300为0.0001
     if teacher is not None:
         # assert teacher_state_file is not None, "Teacher state is None."
 

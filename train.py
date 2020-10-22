@@ -20,6 +20,9 @@ import opts
 import test
 import utils
 
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
 
 def parse_args(argv):
     """Parse arguments @argv and return the flags needed for training."""
@@ -197,8 +200,9 @@ def create_optimizer(model,  discriminator_parameters, momentum=0.9, weight_deca
                                 momentum=momentum, weight_decay=weight_decay)
     return optimizer
 
+#这里的output要等于类别数
 def create_discriminator_criterion(args):
-    d = discriminator.Discriminator(outputs_size=1000, K=8).cuda()
+    d = discriminator.Discriminator(outputs_size=2, K=1).cuda()
     d = torch.nn.DataParallel(d)
     update_parameters = {'params': d.parameters(), "lr": args.d_lr}
     discriminators_criterion = discriminatorLoss(d).cuda()
@@ -219,6 +223,7 @@ def main(argv):
     val_loader = imagenet.get_val_loader(args.imagenet, args.batch_size,
                                          args.num_workers, args.image_size)
     # Create model with optional teachers.
+    # import pdb;pdb.set_trace()
     model, loss = model_factory.create_model(
         args.model, args.student_state_file, args.gpus, args.teacher_model,
         args.teacher_state_file)
