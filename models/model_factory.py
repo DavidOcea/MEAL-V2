@@ -18,15 +18,26 @@ import timm
 # }
 
 def _create_single_cpu_model(model_name, state_file=None):
-    model = _create_model(model_name, teacher=False, pretrain=True)
+    model = _create_model(model_name, teacher=True, pretrain=True)
     if state_file is not None:
         checkpoint = torch.load(state_file)
         state_dict = checkpoint['state_dict']
         from collections import OrderedDict
         new_state_dict = OrderedDict()
-        # for k, v in state_dict.items():
-        #     pass
-        model.load_state_dict(state_dict)        
+        for k, v in state_dict.items():
+            if 'module.basemodel' in k[:16]:
+                name = 'module.{}'.format(k[17:])
+            elif 'fcs.0' in k and model_name != 'se_resnext101_32x4d':
+                name = 'module.fc.{}'.format(k[13:])
+            # elif 'fc' in k and 'fcs' not in k:
+            #     print("dddd")
+            #     name = 'module.last_linear.{}'.format(k[10:])
+            else:
+                name = 'module.last_linear.{}'.format(k[13:])
+            new_state_dict[name] = v
+        state_dict = new_state_dict
+        model.load_state_dict(state_dict,True)    
+        print("==>loda_weight")    
         # model.load_state_dict(torch.load(state_file))
     # model = torch.nn.DataParallel(model).cuda()
     return model
@@ -39,9 +50,18 @@ def _create_checkpoint_model(model_name, state_file=None):
         state_dict = checkpoint['state_dict']
         from collections import OrderedDict
         new_state_dict = OrderedDict()
-        # for k, v in state_dict.items():
-        #     pass
-        model.load_state_dict(state_dict)
+        for k, v in state_dict.items():
+            if 'module.basemodel' in k[:16]:
+                name = 'module.{}'.format(k[17:])
+            elif 'fcs.0' in k:
+                name = 'module.last_linear.{}'.format(k[13:])
+            else:
+                name = k 
+            new_state_dict[name] = v
+        state_dict = new_state_dict
+
+        model.load_state_dict(state_dict,True)
+        print("==>loda_weight")
         # model.load_state_dict(torch.load(state_file))
         # model = torch.nn.DataParallel(model).cuda()
     return model
@@ -51,8 +71,8 @@ def _create_model(model_name, teacher=False, pretrain=True):
         print("=> teacher" if teacher else "=> student", end=":")
         print(" using pre-trained model '{}'".format(model_name))
         # model = models.__dict__[model_name.lower()](pretrained=True)
-        model = models.__dict__[model_name](num_classes=2)
-        print(model)
+        model = models.__dict__[model_name](num_classes=3)
+        # print(model)
         # model = timm.create_model(model_name.lower(), pretrained=True)
     else:
         print("=> creating model '{}'".format(model_name))
@@ -75,7 +95,7 @@ def _create_model(model_name, teacher=False, pretrain=True):
 
 def teachers(teachers=['resnet50'], state_file=None):
     if state_file is not None:
-        return [_create_single_cpu_model(t, state_file).cuda() for t in teachers]
+        return [_create_single_cpu_model(teachers[i], state_file[i]).cuda() for i in range(len(teachers))]
     else:
         return [_create_model(t, teacher=True).cuda() for t in teachers]
 
@@ -84,11 +104,11 @@ def create_model(model_name, student_state_file=None, gpus=[], teacher=None,
                  teacher_state_file=None):
     # model = _create_model(model_name)
     model = _create_checkpoint_model(model_name, student_state_file)
-    model.LR_REGIME = [1, 40, 0.001, 41, 60, 0.0001]  #[1, 100, 0.01, 101, 300, 0.001] # LR_REGIME 样例指1-100为0.01；101-300为0.0001
+    model.LR_REGIME = [1, 40, 0.001, 41, 54, 0.0001, 55, 60, 0.00001]  #[1, 100, 0.01, 101, 300, 0.001] # LR_REGIME 样例指1-100为0.01；101-300为0.0001
     if teacher is not None:
         # assert teacher_state_file is not None, "Teacher state is None."
 
-        teacher = teachers(teacher.split(","), teacher_state_file)
+        teacher = teachers(teacher.split(","), teacher_state_file.split(","))
         model = teacher_wrapper.ModelDistillationWrapper(model, teacher)
         loss = kd_loss.KLLoss()
     else:

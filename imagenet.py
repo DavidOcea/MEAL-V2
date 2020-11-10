@@ -12,9 +12,9 @@ from transforms import RandomResizedCrop, Compose, Resize, CenterCrop, ToTensor,
 from PIL import ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-train_data_list = '/data/dingrui/code/poseidon/jh_cls2_train.txt'
+train_data_list = '/data/dingrui/code/vehicleattributes/data/prepare/jh_cls3_train.txt'
 train_data_root = '/data/dingrui/data/JH_cls3_20191030'
-val_data_list = '/data/dingrui/code/poseidon/jh_cls2_test.txt'
+val_data_list = '/data/dingrui/code/vehicleattributes/data/prepare/jh_cls3_val.txt'
 val_data_root = '/data/dingrui/data/JH_cls3_20191030'
 normalize = Normalize(mean=[0.406, 0.456, 0.485], std=[0.225, 0.224, 0.229])
 
